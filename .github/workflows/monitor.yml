@@ -1,0 +1,42 @@
+name: Monitor Flexit
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      prueba:
+        description: "Solo mandar un mensaje de prueba por WhatsApp"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flexit-monitor
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Revisar ofertas
+        run: python3 flexit_monitor.py ${{ inputs.prueba && '--test' || '' }}
+        env:
+          FLEXIT_TELEFONO: ${{ secrets.FLEXIT_TELEFONO }}
+          FLEXIT_APIKEY: ${{ secrets.FLEXIT_APIKEY }}
+          FLEXIT_REGION: Bío-Bío
+          # Filtros opcionales (vacío = recibir todo). Ej: "Cajas,Guardia" / "Sodimac,Falabella" / "20000"
+          FLEXIT_CARGOS: ""
+          FLEXIT_TIENDAS: ""
+          FLEXIT_PAGO_MINIMO: "0"
+
+      - name: Guardar ofertas vistas
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seen_offers.json 2>/dev/null || exit 0
+          git diff --staged --quiet || { git commit -m "Actualizar ofertas vistas" && git push; }
